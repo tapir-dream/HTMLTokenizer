@@ -297,10 +297,12 @@ function HTMLTokenizer(reader) {
 					
 				case TokenStateEnum.AttributeValueUnquotedState:
 					// 直到有字符位置
-					if (reader.isWordChar()) {
+					if (reader.isWordChar() && c != '>') {
 						word += c;
-					} else if (word.length > 0 && (reader.isSpaceChar() || reader.isTabChar()) || reader.isNewLine()) {
-						// 否则是value后有空格情况
+					} else if (word.length > 0 &&
+						(reader.isSpaceChar() || reader.isTabChar()) || reader.isNewLine()
+						|| c == '>') {
+						// 否则是value后有空格情况或者直接闭合情况
 						cTokenState = TokenStateEnum.AfterAttributeValueQuotedState;
 						// 将attribut value内容填入结构体
 						tl = tokenDataList.length - 1;
