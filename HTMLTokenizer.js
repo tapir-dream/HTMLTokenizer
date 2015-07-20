@@ -113,9 +113,7 @@ function HTMLTokenizer(reader) {
 		var tmpBuffer = '';
 		var tmpTagName = '';
 		var doctypeData = {name: '', pid: '', sid: ''};
-		
 		while(!reader.isInputEnd()) {
-			
 			var c = reader.nextChar();
 			
 			switch(cTokenState) {
@@ -152,7 +150,15 @@ function HTMLTokenizer(reader) {
 								for (var i = 0; i < 7; ++i) {
 									reader.prevChar();
 								}
-								cTokenState = TokenStateEnum.CommentStartState;
+								
+								// 预读两个字符来确定是注释
+								if (reader.offsetChar(1) === '-' && reader.offsetChar(2) === '-') {
+									cTokenState = TokenStateEnum.CommentStartState;
+								} else {
+									cTokenState = TokenStateEnum.TagNameState;
+									// 吃一个字符矫正位置
+									reader.prevChar();
+								}
 							}
 						} else {
 							cTokenState = TokenStateEnum.TagNameState;
@@ -164,7 +170,7 @@ function HTMLTokenizer(reader) {
 					
 				case TokenStateEnum.TagNameState:
 					//TODO:是否需要补充 HTML Tag name 名字规则
-					if (reader.isSpaceChar() || reader.isTabChar()) {
+					if (reader.isSpaceChar() || reader.isTabChar() || reader.isNewLine()) {
 						cTokenState = TokenStateEnum.BeforeAttributeNameState;
 						// 将tag name内容填入结构体
 						tokenDataList.push({
@@ -225,7 +231,7 @@ function HTMLTokenizer(reader) {
 					
 				case TokenStateEnum.AttributeNameState:
 					//TODO:是否需要补充 HTML Tag Attribute name 名字规则
-					if ('=' === c || reader.isSpaceChar() || reader.isTabChar()) {
+					if ('=' === c || reader.isSpaceChar() || reader.isTabChar() || reader.isNewLine()) {
 						cTokenState = TokenStateEnum.BeforeAttributeValueState;
 						// 将attribut name内容填入结构体
 						tl = tokenDataList.length - 1;
@@ -293,7 +299,7 @@ function HTMLTokenizer(reader) {
 					// 直到有字符位置
 					if (reader.isWordChar()) {
 						word += c;
-					} else if (word.length > 0 && (reader.isSpaceChar() || reader.isTabChar())) {
+					} else if (word.length > 0 && (reader.isSpaceChar() || reader.isTabChar()) || reader.isNewLine()) {
 						// 否则是value后有空格情况
 						cTokenState = TokenStateEnum.AfterAttributeValueQuotedState;
 						// 将attribut value内容填入结构体
@@ -304,6 +310,8 @@ function HTMLTokenizer(reader) {
 						tokenDataList[tl].attributes[al].cchar = reader.getCharNumber() - 1;
 						tokenDataList[tl].attributes[al].cline = reader.getLineNumber();
 						word = '';
+						// 回退一个字符矫正位置
+						reader.prevChar();
 					}
 				break;
 				
@@ -1172,7 +1180,7 @@ function HTMLTokenizer(reader) {
 				span: {'node-type': true},
 				br: {},
 				textarea: {},
-				script: {'type': true}
+				script: {'type': true}	
 			};
 		}
 		var c = tdl.length;
@@ -1272,7 +1280,6 @@ function Reader(stream) {
 	
 	var lineNumber = 0;
 	var charNumber = 0;
-	
 	var getChar = function() {
 		return stream.charAt(index);
 	};
@@ -1284,6 +1291,7 @@ function Reader(stream) {
 			charNumber = 0;
 			lineNumber++;
 		}
+		
 		return stream.charAt(index);
 	};
 	
@@ -1314,20 +1322,22 @@ function Reader(stream) {
 	
 	var isNewLine = function() {
 		var c = getChar();
-		if (c === '\n') {
-			index++;
+		if (c.charCodeAt(0) === 10) {
+			return true;
+		}
+		
+		if (c.charCodeAt(0) === 13) {
 			return true;
 		}
 		// window system new line
-		if (c === '\r' && offsetChar(1) === '\n') {
-			index++;
+		if (c.charCodeAt(0) === 13 && offsetChar(1).charCodeAt(0) === 10) {
 			return true;
 		}
 		return false;
 	};
 
 	var isTabChar = function() {
-		return  getChar().charCodeAt(0) === 9 ? true : false;
+		return getChar().charCodeAt(0) === 9 ? true : false;
 	};
 
 	var isSpaceChar = function() {
