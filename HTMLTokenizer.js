@@ -105,7 +105,7 @@ function HTMLTokenizer(reader) {
 		
 	var cTokenState = TokenStateEnum.DataState;
 	
-	var nextToken = function(reader, tokenDataList) {
+		var nextToken = function(reader, tokenDataList) {
 		var word = '';
 		var tl = 0;
 		var al = 0;
@@ -119,6 +119,11 @@ function HTMLTokenizer(reader) {
 			switch(cTokenState) {
 				case TokenStateEnum.DataState:
 					if ('<' === c) {
+						var tbuf = reader.offsetChar(1)
+						if (!reader.isWordChar(tbuf)) {
+							word += c;
+							continue;
+						}
 						cTokenState = TokenStateEnum.TagOpenState;
 						if (word !== '') {
 							tokenDataList.push({
@@ -916,6 +921,24 @@ function HTMLTokenizer(reader) {
 				break;
 				// ========DocType解析完毕==========
 			}
+		}
+		
+		if (tokenDataList.length == 0 && word != '') {
+			tokenDataList.push({
+				token: HTMLTokeEnum.Character,
+				value: word,
+				needEscape: false,
+				cchar: 1,
+				cline: 1
+			});
+		}
+		if (word !== '') {
+			tokenDataList.push({
+				token: HTMLTokeEnum.Character,
+				value: word,
+				cchar: reader.getCharNumber() - 1,
+				cline: reader.getLineNumber()
+			});
 		}
 		return false;
 	};
