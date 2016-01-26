@@ -923,6 +923,7 @@ function HTMLTokenizer(reader) {
 			}
 		}
 		
+		// 纯字符扫尾
 		if (tokenDataList.length == 0 && word != '') {
 			tokenDataList.push({
 				token: HTMLTokeEnum.Character,
@@ -931,7 +932,9 @@ function HTMLTokenizer(reader) {
 				cchar: 1,
 				cline: 1
 			});
+			return false;
 		}
+		// 结尾文本标记扫尾
 		if (word !== '') {
 			tokenDataList.push({
 				token: HTMLTokeEnum.Character,
@@ -939,6 +942,7 @@ function HTMLTokenizer(reader) {
 				cchar: reader.getCharNumber() - 1,
 				cline: reader.getLineNumber()
 			});
+			return false;
 		}
 		return false;
 	};
