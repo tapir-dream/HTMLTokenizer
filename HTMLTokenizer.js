@@ -1151,7 +1151,7 @@ function HTMLTokenizer(reader) {
 					newTdl.push(data);
 					// 如果幸存的标签是 textarea 之类可包含html的标签则特殊处理他们的文本节点
 					// 把他们直接放入数组
-					if (tagName in TagToState && fd.tags && !fd.tags[tagName]) {
+					if (tagName in TagToState && fd.tags && !fd.tags[tagName] && tdl[i + 1].token ==  HTMLTokeEnum.Character) {
 						// 后一项数据必然是文本节点
 						newTdl.push(tdl[i + 1]);
 					}
@@ -1226,7 +1226,7 @@ function HTMLTokenizer(reader) {
 				var attrs = data.attributes;
 				newTdl.push(data);
 				// 特殊处理 textarea 等特殊节点被选择使用的情况
-				if (tagName in TagToState) {
+				if (tagName in TagToState && tdl[i + 1].token ==  HTMLTokeEnum.Character) {
 					// 下一个内容肯定是它的文本节点，把它放入新数组
 					newTdl.push(tdl[i + 1]);
 				}
