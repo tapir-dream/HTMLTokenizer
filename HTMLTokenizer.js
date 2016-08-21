@@ -1,6 +1,6 @@
 function HTMLTokenizer(reader) {
 
-	var HTMLTokeEnum = {
+	var HTMLTokenEnum = {
 		StartTag: 0,
 		EndTag: 1,
 		Comment: 2,
@@ -127,7 +127,7 @@ function HTMLTokenizer(reader) {
 						cTokenState = TokenStateEnum.TagOpenState;
 						if (word !== '') {
 							tokenDataList.push({
-								token: HTMLTokeEnum.Character,
+								token: HTMLTokenEnum.Character,
 								value: word,
 								cchar: reader.getCharNumber() - 1,
 								cline: reader.getLineNumber()
@@ -179,7 +179,7 @@ function HTMLTokenizer(reader) {
 						cTokenState = TokenStateEnum.BeforeAttributeNameState;
 						// 将tag name内容填入结构体
 						tokenDataList.push({
-							token: HTMLTokeEnum.StartTag,
+							token: HTMLTokenEnum.StartTag,
 							value: word.toLowerCase(),
 							cchar: reader.getCharNumber() - 1,
 							cline: reader.getLineNumber(),
@@ -191,7 +191,7 @@ function HTMLTokenizer(reader) {
 						// 说明tag无属性直接结束了
 						// 将tag name内容填入结构体
 						tokenDataList.push({
-							token: HTMLTokeEnum.StartTag,
+							token: HTMLTokenEnum.StartTag,
 							value: word.toLowerCase(),
 							cchar: reader.getCharNumber() - 1,
 							cline: reader.getLineNumber(),
@@ -375,7 +375,7 @@ function HTMLTokenizer(reader) {
 						cTokenState = TokenStateEnum.DataState;
 						// 将tag name内容填入结构体
 						tokenDataList.push({
-							token: HTMLTokeEnum.EndTag,
+							token: HTMLTokenEnum.EndTag,
 							value: word.toLowerCase(),
 							cchar: reader.getCharNumber() - 1,
 							cline: reader.getLineNumber()
@@ -428,7 +428,7 @@ function HTMLTokenizer(reader) {
 						// 另一个是闭合 tag 的 Token
 						if (word != '') {
 							tokenDataList.push({
-								token: HTMLTokeEnum.Character,
+								token: HTMLTokenEnum.Character,
 								value: word,
 								needEscape: true,
 								cchar: reader.getCharNumber() - tmpTagName.length - 3,
@@ -436,7 +436,7 @@ function HTMLTokenizer(reader) {
 							});
 						}
 						tokenDataList.push({
-							token: HTMLTokeEnum.EndTag,
+							token: HTMLTokenEnum.EndTag,
 							value: tmpTagName.toLowerCase(),
 							cchar: reader.getCharNumber() - 1,
 							cline: reader.getLineNumber()
@@ -497,7 +497,7 @@ function HTMLTokenizer(reader) {
 						// 另一个是闭合 tag 的 Token
 						if (word != '') {
 							tokenDataList.push({
-								token: HTMLTokeEnum.Character,
+								token: HTMLTokenEnum.Character,
 								value: word,
 								needEscape: false,
 								cchar: reader.getCharNumber() - tmpTagName.length - 3,
@@ -505,7 +505,7 @@ function HTMLTokenizer(reader) {
 							});
 						}
 						tokenDataList.push({
-							token: HTMLTokeEnum.EndTag,
+							token: HTMLTokenEnum.EndTag,
 							value: tmpTagName.toLowerCase(),
 							cchar: reader.getCharNumber() - 1,
 							cline: reader.getLineNumber()
@@ -566,7 +566,7 @@ function HTMLTokenizer(reader) {
 						// 另一个是闭合 tag 的 Token
 						if (word != '') {
 							tokenDataList.push({
-								token: HTMLTokeEnum.Character,
+								token: HTMLTokenEnum.Character,
 								value: word,
 								needEscape: false,
 								cchar: reader.getCharNumber() - tmpTagName.length - 3,
@@ -574,7 +574,7 @@ function HTMLTokenizer(reader) {
 							});
 						}
 						tokenDataList.push({
-							token: HTMLTokeEnum.EndTag,
+							token: HTMLTokenEnum.EndTag,
 							value: tmpTagName.toLowerCase(),
 							cchar: reader.getCharNumber() - 1,
 							cline: reader.getLineNumber()
@@ -626,7 +626,7 @@ function HTMLTokenizer(reader) {
 					cTokenState = TokenStateEnum.DataState;
 					// 将注释内容填入结构体
 					tokenDataList.push({
-						token: HTMLTokeEnum.Comment,
+						token: HTMLTokenEnum.Comment,
 						value: word,
 						cchar: reader.getCharNumber() - word.length - 3,
 						cline: reader.getLineNumber()
@@ -645,7 +645,7 @@ function HTMLTokenizer(reader) {
 						cTokenState = TokenStateEnum.DataState;
 						// 将Doctype内容填入结构体
 						tokenDataList.push({
-							token: HTMLTokeEnum.Doctype,
+							token: HTMLTokenEnum.Doctype,
 							name: doctypeData.name,
 							pid: doctypeData.pid,
 							sid: doctypeData.sid,
@@ -672,7 +672,7 @@ function HTMLTokenizer(reader) {
 						cTokenState = TokenStateEnum.DataState;
 						// 将Doctype内容填入结构体
 						tokenDataList.push({
-							token: HTMLTokeEnum.Doctype,
+							token: HTMLTokenEnum.Doctype,
 							name: doctypeData.name,
 							pid: doctypeData.pid,
 							sid: doctypeData.sid,
@@ -688,7 +688,7 @@ function HTMLTokenizer(reader) {
 						cTokenState = TokenStateEnum.DataState;
 						// 将Doctype内容填入结构体
 						tokenDataList.push({
-							token: HTMLTokeEnum.Doctype,
+							token: HTMLTokenEnum.Doctype,
 							name: doctypeData.name,
 							pid: doctypeData.pid,
 							sid: doctypeData.sid,
@@ -713,7 +713,7 @@ function HTMLTokenizer(reader) {
 						cTokenState = TokenStateEnum.DataState;
 						// 将Doctype内容填入结构体
 						tokenDataList.push({
-							token: HTMLTokeEnum.Doctype,
+							token: HTMLTokenEnum.Doctype,
 							name: doctypeData.name,
 							pid: doctypeData.pid,
 							sid: doctypeData.sid,
@@ -814,7 +814,7 @@ function HTMLTokenizer(reader) {
 						cTokenState = TokenStateEnum.DataState;
 						// 将Doctype内容填入结构体
 						tokenDataList.push({
-							token: HTMLTokeEnum.Doctype,
+							token: HTMLTokenEnum.Doctype,
 							name: doctypeData.name,
 							pid: doctypeData.pid,
 							sid: doctypeData.sid,
@@ -891,7 +891,7 @@ function HTMLTokenizer(reader) {
 						cTokenState = TokenStateEnum.DataState;
 						// 将Doctype内容填入结构体
 						tokenDataList.push({
-							token: HTMLTokeEnum.Doctype,
+							token: HTMLTokenEnum.Doctype,
 							name: doctypeData.name,
 							pid: doctypeData.pid,
 							sid: doctypeData.sid,
@@ -909,7 +909,7 @@ function HTMLTokenizer(reader) {
 						cTokenState = TokenStateEnum.DataState;
 						// 将Doctype内容填入结构体
 						tokenDataList.push({
-							token: HTMLTokeEnum.Doctype,
+							token: HTMLTokenEnum.Doctype,
 							name: doctypeData.name,
 							pid: doctypeData.pid,
 							sid: doctypeData.sid,
@@ -926,7 +926,7 @@ function HTMLTokenizer(reader) {
 		// 纯字符扫尾
 		if (tokenDataList.length == 0 && word != '') {
 			tokenDataList.push({
-				token: HTMLTokeEnum.Character,
+				token: HTMLTokenEnum.Character,
 				value: word,
 				needEscape: false,
 				cchar: 1,
@@ -937,7 +937,7 @@ function HTMLTokenizer(reader) {
 		// 结尾文本标记扫尾
 		if (word !== '') {
 			tokenDataList.push({
-				token: HTMLTokeEnum.Character,
+				token: HTMLTokenEnum.Character,
 				value: word,
 				cchar: reader.getCharNumber() - 1,
 				cline: reader.getLineNumber()
@@ -949,7 +949,7 @@ function HTMLTokenizer(reader) {
 		
 	var scanner = function() {
 		// tokenDataList 每项结构
-		// {name: HTMLTokeEnum.StartTag, value: 'a', attriubtes: [{attrName: attrValue}, {attrName: attrValue}]};
+		// {name: HTMLTokenEnum.StartTag, value: 'a', attriubtes: [{attrName: attrValue}, {attrName: attrValue}]};
 		cTokenState = TokenStateEnum.DataState;
 		var tokenDataList =[];
 		while(nextToken(reader, tokenDataList)) {}
@@ -970,7 +970,7 @@ function HTMLTokenizer(reader) {
 			var token = data.token;
 			var quotes;
 			switch (token) {
-				case HTMLTokeEnum.StartTag:
+				case HTMLTokenEnum.StartTag:
 					html += '<' + data.value;
 					for (var j = 0, len = data.attributes.length; j < len; ++j) {
 						var attr =  data.attributes[j];
@@ -988,16 +988,16 @@ function HTMLTokenizer(reader) {
 					}
 				break;
 				
-				case HTMLTokeEnum.EndTag:
+				case HTMLTokenEnum.EndTag:
 					html += '</' + data.value + '>';
 				break;
 				
-				case HTMLTokeEnum.Comment:
+				case HTMLTokenEnum.Comment:
 					// 暂时不要输出注释了
 					//html += '<!\-\-' + data.value + '\-\->';
 				break;
 				
-				case HTMLTokeEnum.Doctype:
+				case HTMLTokenEnum.Doctype:
 					html += '<!DOCTYPE' + data.name;
 					if (data.pid && data.pid != '') {
 						html += ' PUBLIC \"'  + data.pid + '\"';
@@ -1008,7 +1008,7 @@ function HTMLTokenizer(reader) {
 					html += '>';
 				break;
 				
-				case HTMLTokeEnum.Character:
+				case HTMLTokenEnum.Character:
 					if (data.needEscape) {
 						html += htmlEncode(data.value);
 					} else {
@@ -1037,7 +1037,7 @@ function HTMLTokenizer(reader) {
 			var data = tdl[i];
 			var token = data.token;
 			var tagName = data.value;
-			if (token === HTMLTokeEnum.StartTag) {
+			if (token === HTMLTokenEnum.StartTag) {
 				if (!IgnoreClosedTags[tagName]) {
 					// 所有标签全部入栈
 					tagStack.unshift(tagName);
@@ -1045,7 +1045,7 @@ function HTMLTokenizer(reader) {
 				continue;
 			}
 			
-			if (token === HTMLTokeEnum.EndTag) {
+			if (token === HTMLTokenEnum.EndTag) {
 				if (isXHTMLMode) {
 					if (tagStack[0] === tagName) {
 						tagStack.shift(0);
@@ -1088,7 +1088,7 @@ function HTMLTokenizer(reader) {
 			var data = tdl[i];
 			var token = data.token;
 			// 与标记无关的东西都扔到新数组,但不包含textarea等标记内的文本节点
-			if (token != HTMLTokeEnum.StartTag || !data.attributes) {
+			if (token != HTMLTokenEnum.StartTag || !data.attributes) {
 				newTdl.push(data);
 				continue;
 			}
@@ -1137,21 +1137,21 @@ function HTMLTokenizer(reader) {
 			var attr;
 			
 			// 与标记无关的东西都扔到新数组,但不包含textarea等标记内的文本节点
-			if (token != HTMLTokeEnum.StartTag && token != HTMLTokeEnum.EndTag &&
+			if (token != HTMLTokenEnum.StartTag && token != HTMLTokenEnum.EndTag &&
 					!('needEscape' in data)) {
 				newTdl.push(data);
 				continue;
 			}
 			
 			// 处理标记
-			if (token === HTMLTokeEnum.StartTag || token === HTMLTokeEnum.EndTag) {
+			if (token === HTMLTokenEnum.StartTag || token === HTMLTokenEnum.EndTag) {
 				// 如果有 tags，就看看开始结束标签是否在内，把不在内的放入新数组
 				// 并且继续执行幸存的标签属性过滤
 				if (fd.tags && !fd.tags[tagName]) {
 					newTdl.push(data);
 					// 如果幸存的标签是 textarea 之类可包含html的标签则特殊处理他们的文本节点
 					// 把他们直接放入数组
-					if (tagName in TagToState && fd.tags && !fd.tags[tagName] && tdl[i + 1].token ==  HTMLTokeEnum.Character) {
+					if (tagName in TagToState && fd.tags && !fd.tags[tagName] && tdl[i + 1].token ==  HTMLTokenEnum.Character) {
 						// 后一项数据必然是文本节点
 						newTdl.push(tdl[i + 1]);
 					}
@@ -1162,7 +1162,7 @@ function HTMLTokenizer(reader) {
 			}
 
 			// 过滤开始标签的属性
-			if (token === HTMLTokeEnum.StartTag) {
+			if (token === HTMLTokenEnum.StartTag) {
 				// 有过滤属性表的情况
 				if (fd.attrs) {
 					// 为了避免数组引用，构建个新属性数组
@@ -1222,11 +1222,11 @@ function HTMLTokenizer(reader) {
 			var token = data.token;
 			var tagName = data.value;
 			var attr;
-			if (token === HTMLTokeEnum.StartTag && sd[tagName]) {
+			if (token === HTMLTokenEnum.StartTag && sd[tagName]) {
 				var attrs = data.attributes;
 				newTdl.push(data);
 				// 特殊处理 textarea 等特殊节点被选择使用的情况
-				if (tagName in TagToState && tdl[i + 1].token ==  HTMLTokeEnum.Character) {
+				if (tagName in TagToState && tdl[i + 1].token ==  HTMLTokenEnum.Character) {
 					// 下一个内容肯定是它的文本节点，把它放入新数组
 					newTdl.push(tdl[i + 1]);
 				}
@@ -1260,12 +1260,12 @@ function HTMLTokenizer(reader) {
 				continue;
 			}	
 				
-			if (token === HTMLTokeEnum.EndTag && sd[tagName]) {
+			if (token === HTMLTokenEnum.EndTag && sd[tagName]) {
 				newTdl.push(data);
 				continue;
 			}
 			// 非textarea等可包含其他html代码的文本节点都扔进去
-			if (token != HTMLTokeEnum.StartTag && token != HTMLTokeEnum.EndTag &&
+			if (token != HTMLTokenEnum.StartTag && token != HTMLTokenEnum.EndTag &&
 					!('needEscape' in data)) {
 				newTdl.push(data);
 				continue;
@@ -1289,7 +1289,7 @@ function HTMLTokenizer(reader) {
 	};
 	
 	return {
-		HTMLTokeEnum: HTMLTokeEnum,
+		HTMLTokenEnum: HTMLTokenEnum,
 		scanner: scanner,
 		toHTML: toHTML,
 		tabClosedCheck: tabClosedCheck,
