@@ -1,3 +1,19 @@
+Skip to content
+This repository
+Search
+Pull requests
+Issues
+Gist
+ @tapir-dream
+ Unwatch 3
+  Star 6
+  Fork 2 tapir-dream/HTMLTokenizer
+ Code  Issues 0  Pull requests 0  Wiki  Pulse  Graphs  Settings
+Branch: master Find file Copy pathHTMLTokenizer/HTMLTokenizer.js
+cd7cf0d  9 minutes ago
+@tapir-dream tapir-dream Update HTMLTokenizer.js
+1 contributor
+RawBlameHistory     1416 lines (1305 sloc)  39 KB
 function HTMLTokenizer(reader) {
 
 	var HTMLTokenEnum = {
@@ -1021,7 +1037,7 @@ function HTMLTokenizer(reader) {
 	};
 	
 	
-	var tabClosedCheck = function(tdl, isXHTMLMode) {
+	var tagClosedCheck = function(tdl, isXHTMLMode) {
 		if (!tdl) {
 			return false;
 		}
@@ -1292,7 +1308,7 @@ function HTMLTokenizer(reader) {
 		HTMLTokenEnum: HTMLTokenEnum,
 		scanner: scanner,
 		toHTML: toHTML,
-		tabClosedCheck: tabClosedCheck,
+		tagClosedCheck: tagClosedCheck,
 		HTMLSelector: HTMLSelector,
 		HTMLFilter: HTMLFilter,
 		HTMLAttrValFilter: HTMLAttrValFilter
