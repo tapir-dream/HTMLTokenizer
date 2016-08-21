@@ -226,6 +226,8 @@ function HTMLTokenizer(reader) {
               cTokenState = TokenStateEnum.DataState;
             }
             return true;
+          } else if ('/' === c) {
+            cTokenState = TokenStateEnum.EndTagOpenState;
           } else if (reader.isWordChar() && '/' != c) {
             word += c;
             cTokenState = TokenStateEnum.AttributeNameState;
