@@ -355,7 +355,9 @@ function HTMLTokenizer(reader) {
         break;
         
         case TokenStateEnum.AfterAttributeValueQuotedState:
-          if ('>' === c) {
+          if ('/' === c) {
+						cTokenState = TokenStateEnum.EndTagOpenState;
+          } else if ('>' === c) {
             // 此处判断是否今日DataState之外的其他状态
             // 处理 style/textarea/pre等 Tag 状态问题
             td = tokenDataList[tokenDataList.length - 1];
@@ -377,6 +379,8 @@ function HTMLTokenizer(reader) {
             tokenDataList.push({
               token: HTMLTokenEnum.EndTag,
               value: word.toLowerCase(),
+              value: word.toLowerCase() || tokenDataList[tokenDataList.length -1].value,
+							selfClose: !word,
               cchar: reader.getCharNumber() - 1,
               cline: reader.getLineNumber()
             });
