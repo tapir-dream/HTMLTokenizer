@@ -1,0 +1,1417 @@
+<!doctype html>
+<meta charset="utf-8" />
+<script>
+function HTMLTokenizer(reader) {
+
+	var HTMLTokenEnum = {
+		StartTag: 0,
+		EndTag: 1,
+		Comment: 2,
+		Character: 3,
+		Doctype: 4,
+	};
+	
+	var TokenStateEnum = {
+		DataState: 0,
+		TagOpenState: 1,
+		EndTagOpenState: 2,
+		TagNameState: 3,
+		CommentStartState: 4,
+		CommentStartDashState: 5,
+		CommentState: 6,
+		CommentEndDashState: 7,
+		CommentEndState: 8,
+		BeforeAttributeNameState: 9,
+		AttributeNameState: 10,
+		AfterAttributeNameState: 11,
+		BeforeAttributeValueState: 12,
+		AttributeValueDoubleQuotedState: 13,
+		AttributeValueSingleQuotedState: 14,
+		AttributeValueUnquotedState: 15,
+		AfterAttributeValueQuotedState: 16,
+		RCDATAState: 17,
+		RAWTEXTState: 18,
+		ScriptDataState: 19,
+		RCDATALessThanSignState: 20,
+		RCDATAEndTagOpenState: 21,
+		RCDATAEndTagNameState: 22,
+		RAWTEXTLessThanSignState: 23,
+		RAWTEXTEndTagOpenState: 24,
+		RAWTEXTEndTagNameState: 25,
+		ScriptDataLessThanSignState: 26,
+		ScriptDataEndTagOpenState: 27,
+		ScriptDataEndTagNameState: 28,
+		DOCTYPEState: 29,
+		BeforeDOCTYPENameState: 30,
+		DOCTYPENameState: 31,
+		AfterDOCTYPENameState: 32,
+		AfterDOCTYPEPublicKeywordState: 33,
+		BeforeDOCTYPEPublicIdentifierState: 34,
+		DOCTYPEPublicIdentifierDoubleQuotedState: 35,
+		DOCTYPEPublicIdentifierSingleQuotedState: 36,
+		AfterDOCTYPEPublicIdentifierState: 37,
+		BetweenDOCTYPEPublicAndSystemIdentifiersState: 38,
+		AfterDOCTYPESystemKeywordState: 38,
+		BeforeDOCTYPESystemIdentifierState: 40,
+		DOCTYPESystemIdentifierDoubleQuotedState: 41,
+		DOCTYPESystemIdentifierSingleQuotedState: 42,
+		AfterDOCTYPESystemIdentifierState: 43,
+		BogusDOCTYPEState: 44
+	};
+	
+	var TagToState = {
+		title: TokenStateEnum.RCDATAState,
+		textarea: TokenStateEnum.RCDATAState,
+		pre: TokenStateEnum.RCDATAState,
+		style: TokenStateEnum.RAWTEXTState,
+		xmp: TokenStateEnum.RAWTEXTState, 
+		iframe: TokenStateEnum.RAWTEXTState, 
+		noembed: TokenStateEnum.RAWTEXTState, 
+		noframes: TokenStateEnum.RAWTEXTState,
+		noscript: TokenStateEnum.RAWTEXTState,
+		script: TokenStateEnum.ScriptDataState
+	};
+			
+	var IgnoreClosedTags = {
+		area: true,
+		base: true, 
+		basefont: true,
+		br: true,
+		col: true,
+		frame: true,
+		hr: true,
+		img: true,
+		input: true,
+		isindex: true,
+		link: true,
+		meta: true,
+		param: true
+	};
+	
+	var SelectClosedTags = {
+		body: true,
+		colgroup: true,
+		dd: true,
+		dt: true,
+		head: true,
+		html: true,
+		li: true,
+		option: true,
+		p: true,
+		tbody: true,
+		td: true,
+		tfoot: true,
+		th: true,
+		thead: true,
+		tr: true
+	};
+		
+	var cTokenState = TokenStateEnum.DataState;
+	
+		var nextToken = function(reader, tokenDataList) {
+		var word = '';
+		var tl = 0;
+		var al = 0;
+		var td;
+		var tmpBuffer = '';
+		var tmpTagName = '';
+		var doctypeData = {name: '', pid: '', sid: ''};
+		while(!reader.isInputEnd()) {
+			var c = reader.nextChar();
+			
+			switch(cTokenState) {
+				case TokenStateEnum.DataState:
+					if ('<' === c) {
+						var tbuf = reader.offsetChar(1)
+						if (!reader.isWordChar(tbuf)) {
+							word += c;
+							continue;
+						}
+						cTokenState = TokenStateEnum.TagOpenState;
+						if (word !== '') {
+							tokenDataList.push({
+								token: HTMLTokenEnum.Character,
+								value: word,
+								cchar: reader.getCharNumber() - 1,
+								cline: reader.getLineNumber()
+							});
+						}
+						return true;
+					} else {
+						word += c;
+					}
+				break;
+			
+				case TokenStateEnum.TagOpenState:
+					if (reader.isWordChar()) {
+						// 表明注释或doctype开始
+						if ('!' === c) {
+							tmpBuffer = '';
+							// 预读7个字符来判断是否为doctype
+							for (var i = 0; i < 7; ++i) {
+								tmpBuffer += reader.nextChar();
+							}
+							if ('doctype' === tmpBuffer.toLowerCase()) { //doctype
+								cTokenState = TokenStateEnum.DOCTYPEState;
+							} else { //注释
+								// 将字符回退7个矫正位置
+								for (var i = 0; i < 7; ++i) {
+									reader.prevChar();
+								}
+								
+								// 预读两个字符来确定是注释
+								if (reader.offsetChar(1) === '-' && reader.offsetChar(2) === '-') {
+									cTokenState = TokenStateEnum.CommentStartState;
+								} else {
+									cTokenState = TokenStateEnum.TagNameState;
+									// 吃一个字符矫正位置
+									reader.prevChar();
+								}
+							}
+						} else {
+							// 预读 100 个字符来判断是否为 < 运算符
+							var closeTag = false;
+							for (var i = 1; i < 100;++i) {
+								var nextChar = reader.offsetChar(i);
+								if (nextChar && (nextChar === ')' || nextChar=== ','	|| nextChar === '?' )) {
+									break;
+								}
+								if (nextChar === '>') {
+									closeTag = true;
+									break;
+								}
+							}
+							if (closeTag || i >= 100) {
+								cTokenState = TokenStateEnum.TagNameState;
+								// 吃一个字符矫正位置
+								reader.prevChar();
+							} else {
+								reader.prevChar();
+								cTokenState = TokenStateEnum.DataState;
+								word = '<' + word;
+							}
+						}
+					}
+				break;
+					
+				case TokenStateEnum.TagNameState:
+					//TODO:是否需要补充 HTML Tag name 名字规则
+					if (reader.isSpaceChar() || reader.isTabChar() || reader.isNewLine()) {
+						cTokenState = TokenStateEnum.BeforeAttributeNameState;
+						// 将tag name内容填入结构体
+						tokenDataList.push({
+							token: HTMLTokenEnum.StartTag,
+							value: word,
+							cchar: reader.getCharNumber() - 1,
+							cline: reader.getLineNumber(),
+							attributes: []
+						});
+						return true;
+						
+					} else if ('>' === c) {
+						// 说明tag无属性直接结束了
+						// 将tag name内容填入结构体
+						tokenDataList.push({
+							token: HTMLTokenEnum.StartTag,
+							value: word,
+							cchar: reader.getCharNumber() - 1,
+							cline: reader.getLineNumber(),
+							attributes: []
+						});
+						// 此处判断是否今日DataState之外的其他状态
+						// 处理 style/textarea/pre等 Tag 状态问题
+						td = tokenDataList[tokenDataList.length - 1];
+						if (td.value in TagToState) {
+							cTokenState = TagToState[td.value];
+						} else {
+							cTokenState = TokenStateEnum.DataState;
+						}
+						return true;
+						
+					} else if ('/' === c) {
+						cTokenState = TokenStateEnum.EndTagOpenState;
+					} else {
+						word += c;
+					}
+				break;
+					
+				case TokenStateEnum.BeforeAttributeNameState:
+					//TODO:是否需要补充 HTML Tag Attribute name 名字规则
+					if ('>' === c) {
+						// 此处判断是否今日DataState之外的其他状态
+						// 处理 style/textarea/pre等 Tag 状态问题
+						td = tokenDataList[tokenDataList.length - 1];
+						if (td.value in TagToState) {
+							cTokenState = TagToState[td.value];
+						} else {
+							cTokenState = TokenStateEnum.DataState;
+						}
+						return true;
+					} else if ('/' === c) {
+						cTokenState = TokenStateEnum.EndTagOpenState;
+					} else if (reader.isWordChar() && '/' != c) {
+						word += c;
+						cTokenState = TokenStateEnum.AttributeNameState;
+					} else {
+						continue;
+					}
+					break;
+					
+				case TokenStateEnum.AttributeNameState:
+					//TODO:是否需要补充 HTML Tag Attribute name 名字规则
+					if ('=' === c || reader.isSpaceChar() || reader.isTabChar() || reader.isNewLine()) {
+						cTokenState = TokenStateEnum.BeforeAttributeValueState;
+						// 将attribut name内容填入结构体
+						tl = tokenDataList.length - 1;
+						tokenDataList[tl].attributes.push({
+							name: word,
+							cchar: reader.getCharNumber() - 1,
+							cline: reader.getLineNumber(),
+							value: ''
+						});
+						word = '';
+					} else if ('>' === c) {
+						// 仅有属性名无属性值情况
+						cTokenState = TokenStateEnum.DataState;
+						tl = tokenDataList.length - 1;
+						tokenDataList[tl].attributes.push({
+							name: word,
+							cchar: reader.getCharNumber() - 1,
+							cline: reader.getLineNumber(),
+							value: ''
+						});
+						return true;
+					} else {
+						word += c;
+					}
+				break;
+					
+				case TokenStateEnum.BeforeAttributeValueState:
+					oc = reader.offsetChar(-1);
+					// 如果前一个字符是 = 则说明从这个字符起，这个char为 attribute value 值
+					if (oc == '=') {
+						// 判断当前字符 是否为 引号
+						if (reader.isSingleQuotes()) {
+							cTokenState = TokenStateEnum.AttributeValueSingleQuotedState;
+						} else if (reader.isDoubleQuotes()) {
+							 cTokenState = TokenStateEnum.AttributeValueDoubleQuotedState;
+						} else {
+							// 不是 引号则 进入没加引号状态
+							cTokenState = TokenStateEnum.AttributeValueUnquotedState;
+							// 回退一个字符矫正位置
+							reader.prevChar();
+						}
+						
+					} else if ('=' === c) {
+						// 自身为 = 则状态未变
+						cTokenState = TokenStateEnum.BeforeAttributeValueState;
+					} else if ('>' === c) {
+						// 如果直接遇到 > 字符，则说明标记闭合
+						// 此处判断是否今日DataState之外的其他状态
+						// 处理 style/textarea/pre等 Tag 状态问题
+						td = tokenDataList[tokenDataList.length - 1];
+						if (td.value in TagToState) {
+							cTokenState = TagToState[td.value];
+						} else {
+							cTokenState = TokenStateEnum.DataState;
+						}
+					} else if (reader.isWordChar()) {
+						// 最后如果自身不是 = 字符 说明不是 attribute value 而是一个新的属性名
+						// 回退一个字符矫正位置
+						reader.prevChar();
+						cTokenState = TokenStateEnum.AttributeNameState;
+					}
+				break;
+					
+				case TokenStateEnum.AttributeValueUnquotedState:
+					// 直到有字符位置
+					if (reader.isWordChar() && (c != '>' && c != '/')) {
+						word += c;
+					} else if (word.length > 0 &&
+						(reader.isSpaceChar() || reader.isTabChar()) || reader.isNewLine()
+						|| c == '>'	|| c == '/') {
+						// 否则是value后有空格情况或者直接闭合情况
+						cTokenState = TokenStateEnum.AfterAttributeValueQuotedState;
+						// 将attribut value内容填入结构体
+						tl = tokenDataList.length - 1;
+						al = tokenDataList[tl].attributes.length - 1;
+						tokenDataList[tl].attributes[al].quotes = '';
+						tokenDataList[tl].attributes[al].value =	word;
+						tokenDataList[tl].attributes[al].cchar = reader.getCharNumber() - 1;
+						tokenDataList[tl].attributes[al].cline = reader.getLineNumber();
+						word = '';
+						// 回退一个字符矫正位置
+						reader.prevChar();
+					}
+				break;
+				
+				case TokenStateEnum.AttributeValueDoubleQuotedState: 
+				 if (reader.isDoubleQuotes()) {
+						cTokenState = TokenStateEnum.AfterAttributeValueQuotedState;
+						// 将attribut value内容填入结构体
+						tl = tokenDataList.length - 1;
+						al = tokenDataList[tl].attributes.length - 1;
+						tokenDataList[tl].attributes[al].quotes = '\"';
+						tokenDataList[tl].attributes[al].value = word;
+						tokenDataList[tl].attributes[al].cchar = reader.getCharNumber() - 1;
+						tokenDataList[tl].attributes[al].cline = reader.getLineNumber();
+						word = '';
+					}	else {
+						word += c;
+					}
+				break;
+					
+				case TokenStateEnum.AttributeValueSingleQuotedState: 
+					if (reader.isSingleQuotes()) {
+						// 将attribut value内容填入结构体
+						cTokenState = TokenStateEnum.AfterAttributeValueQuotedState;
+						tl = tokenDataList.length - 1;
+						al = tokenDataList[tl].attributes.length - 1;
+						tokenDataList[tl].attributes[al].quotes = '\'';
+						tokenDataList[tl].attributes[al].value = word;
+						tokenDataList[tl].attributes[al].cchar = reader.getCharNumber() - 1;
+						tokenDataList[tl].attributes[al].cline = reader.getLineNumber();
+						word = '';
+					} else {
+						word += c;
+					}
+				break;
+				
+				case TokenStateEnum.AfterAttributeValueQuotedState:
+					if ('/' === c) {
+						cTokenState = TokenStateEnum.EndTagOpenState;
+					} else if ('>' === c) {
+						// 此处判断是否今日DataState之外的其他状态
+						// 处理 style/textarea/pre等 Tag 状态问题
+						td = tokenDataList[tokenDataList.length - 1];
+						if (td.value in TagToState) {
+							cTokenState = TagToState[td.value];
+						} else {
+							cTokenState = TokenStateEnum.DataState;
+						}
+						return true;
+					} else {
+						cTokenState = TokenStateEnum.BeforeAttributeNameState;
+					}
+				break;
+				
+				case TokenStateEnum.EndTagOpenState:
+					if ('>' === c) {
+						cTokenState = TokenStateEnum.DataState;
+						// 将tag name内容填入结构体
+						tokenDataList.push({
+							token: HTMLTokenEnum.EndTag,
+							value: word || tokenDataList[tokenDataList.length -1].value,
+							selfClose: !word,
+							cchar: reader.getCharNumber() - 1,
+							cline: reader.getLineNumber()
+						});
+						return true;
+					} else {
+						word += c;
+					}
+				break;
+				
+				case TokenStateEnum.RCDATAState:
+					if ('<' === c) {
+						// 标签可能闭合了，将可能字符串存入临时缓冲
+						tmpBuffer += c;
+						cTokenState = TokenStateEnum.RCDATALessThanSignState;
+					} else {
+						// 当做普通字符累加
+						word += c;
+					}
+				break;
+				
+				case TokenStateEnum.RCDATALessThanSignState:
+					if ('/' === c) {
+						tmpBuffer += c;
+						cTokenState = TokenStateEnum.RCDATAEndTagOpenState;
+					} else {
+						cTokenState = TokenStateEnum.RCDATAState;
+						// 它是普通文本，把它放入 word 内并补足上一状态的 < 字符
+						// 并且清空 tmpBuffer
+						word += '<' + c;
+						tmpBuffer = '';
+					}
+				break;
+						
+				case TokenStateEnum.RCDATAEndTagOpenState:
+					tmpBuffer += c;
+					tmpTagName += c;
+					if (!reader.isWordChar() || '>' === reader.offsetChar(1)) {
+						cTokenState = TokenStateEnum.RCDATAEndTagNameState;
+					}
+				break;
+				
+				case TokenStateEnum.RCDATAEndTagNameState:
+					td = tokenDataList[tokenDataList.length - 1];
+					// 开始标签如果与预取解释标签名一致
+					// 就认为这个标签闭合了
+					if (td.value === tmpTagName) {
+						// 此处需要存入两个 Token
+						// 一个是 RCDATA 值 Token
+						// 另一个是闭合 tag 的 Token
+						if (word != '') {
+							tokenDataList.push({
+								token: HTMLTokenEnum.Character,
+								value: word,
+								needEscape: true,
+								cchar: reader.getCharNumber() - tmpTagName.length - 3,
+								cline: reader.getLineNumber()
+							});
+						}
+						tokenDataList.push({
+							token: HTMLTokenEnum.EndTag,
+							value: tmpTagName(),
+							cchar: reader.getCharNumber() - 1,
+							cline: reader.getLineNumber()
+						});
+						cTokenState = TokenStateEnum.DataState;
+						return true;
+						
+					} else {
+						tmpBuffer += c;
+						// 如果没校验成功配对闭合，则累加 word 值和缓存值
+						// 并清空缓存内容
+						word += tmpBuffer;
+						tmpBuffer = '';
+						tmpTagName = '';
+						cTokenState = TokenStateEnum.RCDATAState;
+					}
+				break;
+				
+				case TokenStateEnum.RAWTEXTState:
+					if ('<' === c) {
+						// 标签可能闭合了，将可能字符串存入临时缓冲
+						tmpBuffer += c;
+						cTokenState = TokenStateEnum.RAWTEXTLessThanSignState;
+					} else {
+						// 当做普通字符累加
+						word += c;
+					}
+				break;
+				
+				case TokenStateEnum.RAWTEXTLessThanSignState:
+					if ('/' === c) {
+						tmpBuffer += c;
+						cTokenState = TokenStateEnum.RAWTEXTEndTagOpenState;
+					} else {
+						cTokenState = TokenStateEnum.RAWTEXTState;
+						// 它是普通文本，把它放入 word 内并补足上一状态的 < 字符
+						// 并且清空 tmpBuffer
+						word += '<' + c;
+						tmpBuffer = '';
+					}
+				break;
+				
+				case TokenStateEnum.RAWTEXTEndTagOpenState:
+					tmpBuffer += c;
+					tmpTagName += c;
+					if (!reader.isWordChar() || '>' === reader.offsetChar(1)) {
+						cTokenState = TokenStateEnum.RAWTEXTEndTagNameState;
+					}
+				break;
+				
+				case TokenStateEnum.RAWTEXTEndTagNameState:
+					td = tokenDataList[tokenDataList.length - 1];
+					// 开始标签如果与预取解释标签名一致
+					// 就认为这个标签闭合了
+					if (td.value === tmpTagName) {
+						// 此处需要存入两个 Token
+						// 一个是 RCDATA 值 Token
+						// 另一个是闭合 tag 的 Token
+						if (word != '') {
+							tokenDataList.push({
+								token: HTMLTokenEnum.Character,
+								value: word,
+								needEscape: false,
+								cchar: reader.getCharNumber() - tmpTagName.length - 3,
+								cline: reader.getLineNumber()
+							});
+						}
+						tokenDataList.push({
+							token: HTMLTokenEnum.EndTag,
+							value: tmpTagName,
+							cchar: reader.getCharNumber() - 1,
+							cline: reader.getLineNumber()
+						});
+						cTokenState = TokenStateEnum.DataState;
+						return true;
+						
+					} else {
+						tmpBuffer += c;
+						// 如果没校验成功配对闭合，则累加 word 值和缓存值
+						// 并清空缓存内容
+						word += tmpBuffer;
+						tmpBuffer = '';
+						tmpTagName = '';
+						cTokenState = TokenStateEnum.RAWTEXTState;
+					}
+				break;
+					
+				case TokenStateEnum.ScriptDataState:
+					if ('<' === c) {
+						// 标签可能闭合了，将可能字符串存入临时缓冲
+						tmpBuffer += c;
+						cTokenState = TokenStateEnum.ScriptDataLessThanSignState;
+					} else {
+						// 当做普通字符累加
+						word += c;
+					}
+				break;
+				
+				case TokenStateEnum.ScriptDataLessThanSignState:
+					if ('/' === c) {
+						tmpBuffer += c;
+						cTokenState = TokenStateEnum.ScriptDataEndTagOpenState;
+					} else {
+						cTokenState = TokenStateEnum.ScriptDataState;
+						// 它是普通文本，把它放入 word 内并补足上一状态的 < 字符
+						// 并且清空 tmpBuffer
+						word += '<' + c;
+						tmpBuffer = '';
+					}
+				break;
+				
+				case TokenStateEnum.ScriptDataEndTagOpenState:
+					tmpBuffer += c;
+					tmpTagName += c;
+					if (!reader.isWordChar() || '>' === reader.offsetChar(1)) {
+						cTokenState = TokenStateEnum.ScriptDataEndTagNameState;
+					}
+				break;
+				
+				case TokenStateEnum.ScriptDataEndTagNameState:
+					td = tokenDataList[tokenDataList.length - 1];
+					// 开始标签如果与预取解释标签名一致
+					// 就认为这个标签闭合了
+					if (td.value === tmpTagName) {
+						// 此处需要存入两个 Token
+						// 一个是 RCDATA 值 Token
+						// 另一个是闭合 tag 的 Token
+						if (word != '') {
+							tokenDataList.push({
+								token: HTMLTokenEnum.Character,
+								value: word,
+								needEscape: false,
+								cchar: reader.getCharNumber() - tmpTagName.length - 3,
+								cline: reader.getLineNumber()
+							});
+						}
+						tokenDataList.push({
+							token: HTMLTokenEnum.EndTag,
+							value: tmpTagName(),
+							cchar: reader.getCharNumber() - 1,
+							cline: reader.getLineNumber()
+						});
+						cTokenState = TokenStateEnum.DataState;
+						return true;
+						
+					} else {
+						tmpBuffer += c;
+						// 如果没校验成功配对闭合，则累加 word 值和缓存值
+						// 并清空缓存内容
+						word += tmpBuffer;
+						tmpBuffer = '';
+						tmpTagName = '';
+						cTokenState = TokenStateEnum.ScriptDataState;
+					}
+				break;
+				
+				// ========注释标签解析===========
+				case TokenStateEnum.CommentStartState:
+					if ('-' === c) {
+						cTokenState = TokenStateEnum.CommentStartDashState;
+					} 
+				break;
+					
+				case TokenStateEnum.CommentStartDashState:
+					if ('-' === c) {
+						cTokenState = TokenStateEnum.CommentState;
+					}
+				break;
+					
+				case TokenStateEnum.CommentState:
+					if ('-' === c && '-' == reader.offsetChar(1)) {
+						cTokenState = TokenStateEnum.CommentEndDashState;
+					} else {
+						// 注释文字处理
+						// 一个个字符保存起来
+						word += c;
+					}
+				break;
+					
+				case TokenStateEnum.CommentEndDashState:
+					if ('-' === c && '>' == reader.offsetChar(1)) {
+						cTokenState = TokenStateEnum.CommentEndState;
+					}
+				break;
+					
+				case TokenStateEnum.CommentEndState:
+					cTokenState = TokenStateEnum.DataState;
+					// 将注释内容填入结构体
+					tokenDataList.push({
+						token: HTMLTokenEnum.Comment,
+						value: word,
+						cchar: reader.getCharNumber() - word.length - 3,
+						cline: reader.getLineNumber()
+					});
+					return true;
+				break;
+				// ========注释标签解析完毕==========
+				
+				// ========DocType解析==========
+				case TokenStateEnum.DOCTYPEState:
+					if (!reader.isWordChar()) {
+						cTokenState = TokenStateEnum.BeforeDOCTYPENameState;
+						continue;
+					}
+					if ('>' === c) {
+						cTokenState = TokenStateEnum.DataState;
+						// 将Doctype内容填入结构体
+						tokenDataList.push({
+							token: HTMLTokenEnum.Doctype,
+							name: doctypeData.name,
+							pid: doctypeData.pid,
+							sid: doctypeData.sid,
+							cchar: reader.getCharNumber(),
+							cline: reader.getLineNumber()
+						});
+						continue;
+					}
+					// parser error in DOCTYPEState.
+					cTokenState = TokenStateEnum.BogusDOCTYPEState;
+				break;
+				
+				case TokenStateEnum.BeforeDOCTYPENameState:
+					if (reader.isSpaceChar()) { 
+						continue;
+					}
+					if (reader.isWordChar()) {
+						cTokenState = TokenStateEnum.DOCTYPENameState;
+						// 回退一个字符
+						reader.prevChar();
+						continue;
+					}
+					if ('>' === c) {
+						cTokenState = TokenStateEnum.DataState;
+						// 将Doctype内容填入结构体
+						tokenDataList.push({
+							token: HTMLTokenEnum.Doctype,
+							name: doctypeData.name,
+							pid: doctypeData.pid,
+							sid: doctypeData.sid,
+							cchar: reader.getCharNumber(),
+							cline: reader.getLineNumber()
+						});
+						continue;
+					}
+				break;
+				
+				case TokenStateEnum.DOCTYPENameState:
+					if ('>' === c) {
+						cTokenState = TokenStateEnum.DataState;
+						// 将Doctype内容填入结构体
+						tokenDataList.push({
+							token: HTMLTokenEnum.Doctype,
+							name: doctypeData.name,
+							pid: doctypeData.pid,
+							sid: doctypeData.sid,
+							cchar: reader.getCharNumber(),
+							cline: reader.getLineNumber()
+						});
+						continue;
+					}
+					if (reader.isWordChar()) { 
+						doctypeData.name += c;
+						continue;
+					} else {
+						cTokenState = TokenStateEnum.AfterDOCTYPENameState;
+					}
+				break;
+				
+				case TokenStateEnum.AfterDOCTYPENameState:
+					if (!reader.isWordChar()) {
+						continue;
+					}
+					if ('>' === c) {
+						cTokenState = TokenStateEnum.DataState;
+						// 将Doctype内容填入结构体
+						tokenDataList.push({
+							token: HTMLTokenEnum.Doctype,
+							name: doctypeData.name,
+							pid: doctypeData.pid,
+							sid: doctypeData.sid,
+							cchar: reader.getCharNumber(),
+							cline: reader.getLineNumber()
+						});
+						continue;
+					}
+					
+					tmpBuffer = '';
+					tmpBuffer += c;
+					// 向后预读5个字符来判断是否为 public
+					for (var i = 0; i < 5; ++i) {
+						tmpBuffer += reader.nextChar();
+					}
+					if ('public' === tmpBuffer.toLowerCase()) {
+						cTokenState = TokenStateEnum.AfterDOCTYPEPublicKeywordState;
+						continue;
+					}
+					if ('system' === tmpBuffer.toLowerCase()) {
+						cTokenState = TokenStateEnum.AfterDOCTYPESystemKeywordState;
+						continue;
+					}
+					// 不是 pid 也不是 sid 就去 BogusDOCTYPEState 吧……
+					cTokenState = TokenStateEnum.BogusDOCTYPEState;
+					// 回退 5 个字符
+					for (var i = 0; i < 5; ++i) {
+						reader.prevChar();
+					}
+				break;
+				
+				// pid 解析
+				case TokenStateEnum.AfterDOCTYPEPublicKeywordState:
+					if (!reader.isWordChar()) {
+						cTokenState = TokenStateEnum.BeforeDOCTYPEPublicIdentifierState;
+						continue;
+					}
+					if ('>' === c) {
+						// Parse error in AfterDOCTYPEPublicKeywordState.
+						cTokenState = TokenStateEnum.BogusDOCTYPEState;
+					}
+				break;
+				
+				case TokenStateEnum.BeforeDOCTYPEPublicIdentifierState:
+					if (reader.isSingleQuotes()) {
+						cTokenState = TokenStateEnum.DOCTYPEPublicIdentifierSingleQuotedState;
+						continue;
+					}
+					if (reader.isDoubleQuotes()) {
+						cTokenState = TokenStateEnum.DOCTYPEPublicIdentifierDoubleQuotedState;
+						continue;
+					}
+					if ('>' === c) {
+						// Parse error in AfterDOCTYPEPublicKeywordState.
+						cTokenState = TokenStateEnum.BogusDOCTYPEState;
+					}
+				break;
+				
+				case TokenStateEnum.DOCTYPEPublicIdentifierDoubleQuotedState:
+					if ('>' === c) {
+						// Parse error in DOCTYPEPublicIdentifierDoubleQuotedState.
+						cTokenState = TokenStateEnum.BogusDOCTYPEState;
+					}
+					if (reader.isDoubleQuotes()) {
+						cTokenState = TokenStateEnum.AfterDOCTYPEPublicIdentifierState;
+						continue;
+					}
+					if (reader.isWordChar()) {
+						doctypeData.pid += c; 
+					}
+				break;
+				
+				case TokenStateEnum.DOCTYPEPublicIdentifierSingleQuotedState:
+					if ('>' === c) {
+						// Parse error in DOCTYPEPublicIdentifierSingleQuotedState.
+						cTokenState = TokenStateEnum.BogusDOCTYPEState;
+					}
+					if (reader.isSingleQuotes()) {
+						cTokenState = TokenStateEnum.AfterDOCTYPEPublicIdentifierState;
+						continue;
+					}
+					if (reader.isWordChar()) {
+						doctypeData.pid += c; 
+					}
+				break;
+				
+				case TokenStateEnum.AfterDOCTYPEPublicIdentifierState:
+					if (!reader.isWordChar()) {
+						cTokenState = TokenStateEnum.BetweenDOCTYPEPublicAndSystemIdentifiersState;
+						continue;
+					}
+					// Parse error in AfterDOCTYPEPublicIdentifierState.
+					cTokenState = TokenStateEnum.BogusDOCTYPEState;
+				break;
+				
+				case TokenStateEnum.BetweenDOCTYPEPublicAndSystemIdentifiersState:
+					if ('>' === c) {
+						cTokenState = TokenStateEnum.DataState;
+						// 将Doctype内容填入结构体
+						tokenDataList.push({
+							token: HTMLTokenEnum.Doctype,
+							name: doctypeData.name,
+							pid: doctypeData.pid,
+							sid: doctypeData.sid,
+							cchar: reader.getCharNumber(),
+							cline: reader.getLineNumber()
+						});
+						continue;
+					}
+					if (reader.isSingleQuotes()) {
+						cTokenState = TokenStateEnum.DOCTYPESystemIdentifierSingleQuotedState;
+						continue;
+					}
+					if (reader.isDoubleQuotes()) {
+						cTokenState = TokenStateEnum.DOCTYPESystemIdentifierDoubleQuotedState;
+						continue;
+					}
+				break;
+				
+				// sid 解析
+				case TokenStateEnum.AfterDOCTYPESystemKeywordState:
+					if (!reader.isWordChar()) {
+						cTokenState = TokenStateEnum.BeforeDOCTYPESystemKeywordState;
+						continue;
+					}
+					if ('>' === c) {
+						// Parse error in AfterDOCTYPESystemKeywordState.
+						cTokenState = TokenStateEnum.BogusDOCTYPEState;
+					}
+				break;
+				
+				case TokenStateEnum.BeforeDOCTYPESystemIdentifierState:
+					if (reader.isSingleQuotes()) {
+						cTokenState = TokenStateEnum.DOCTYPESystemIdentifierSingleQuotedState;
+						continue;
+					}
+					if (reader.isDoubleQuotes()) {
+						cTokenState = TokenStateEnum.DOCTYPESystemIdentifierDoubleQuotedState;
+						continue;
+					}
+					// Parse error in BeforeDOCTYPESystemIdentifierState.
+					cTokenState = TokenStateEnum.BogusDOCTYPEState;
+				break;
+				
+				case TokenStateEnum.DOCTYPESystemIdentifierDoubleQuotedState:
+					if ('>' === c) {
+						// Parse error in DOCTYPESystemIdentifierDoubleQuotedState.
+						cTokenState = TokenStateEnum.BogusDOCTYPEState;
+					}
+					if (reader.isDoubleQuotes()) {
+						cTokenState = TokenStateEnum.AfterDOCTYPESystemIdentifierState;
+						continue;
+					}
+					if (reader.isWordChar()) {
+						doctypeData.sid += c; 
+					}
+				break;
+				
+				case TokenStateEnum.DOCTYPESystemIdentifierSingleQuotedState:
+					if ('>' === c) {
+						// Parse error in DOCTYPESystemIdentifierSingleQuotedState.
+						cTokenState = TokenStateEnum.BogusDOCTYPEState;
+					}
+					if (reader.isSingleQuotes()) {
+						cTokenState = TokenStateEnum.AfterDOCTYPESystemIdentifierState;
+						continue;
+					}
+					if (reader.isWordChar()) {
+						doctypeData.sid += c;
+					}
+				break;
+				
+				case TokenStateEnum.AfterDOCTYPESystemIdentifierState:
+					if ('>' === c) {
+						cTokenState = TokenStateEnum.DataState;
+						// 将Doctype内容填入结构体
+						tokenDataList.push({
+							token: HTMLTokenEnum.Doctype,
+							name: doctypeData.name,
+							pid: doctypeData.pid,
+							sid: doctypeData.sid,
+							cchar: reader.getCharNumber(),
+							cline: reader.getLineNumber()
+						});
+						continue;
+					}
+					// Parse error in AfterDOCTYPESystemIdentifierState.'
+					cTokenState = TokenStateEnum.BogusDOCTYPEState;
+				break;
+				
+				case TokenStateEnum.BogusDOCTYPEState:
+					if ('>' === c) {
+						cTokenState = TokenStateEnum.DataState;
+						// 将Doctype内容填入结构体
+						tokenDataList.push({
+							token: HTMLTokenEnum.Doctype,
+							name: doctypeData.name,
+							pid: doctypeData.pid,
+							sid: doctypeData.sid,
+							cchar: reader.getCharNumber(),
+							cline: reader.getLineNumber()
+						});
+						continue;
+					}
+				break;
+				// ========DocType解析完毕==========
+			}
+		}
+		
+		// 纯字符扫尾
+		if (tokenDataList.length == 0 && word != '') {
+			tokenDataList.push({
+				token: HTMLTokenEnum.Character,
+				value: word,
+				needEscape: false,
+				cchar: 1,
+				cline: 1
+			});
+			return false;
+		}
+		// 结尾文本标记扫尾
+		if (word !== '') {
+			tokenDataList.push({
+				token: HTMLTokenEnum.Character,
+				value: word,
+				cchar: reader.getCharNumber() - 1,
+				cline: reader.getLineNumber()
+			});
+			return false;
+		}
+		return false;
+	};
+
+	var tagClosedCheck = function(tdl) {
+		if (!tdl) {
+			return false;
+		}
+		var c = tdl.length;
+		if (c == 0) {
+			return false;
+		}
+
+		var tagStack = [];
+		var noClosedTags = [];
+		
+		for (var i = 0; i < c; ++i) {
+			var data = tdl[i];
+			var token = data.token;
+			var tagName = data.value;
+			if (token === HTMLTokenEnum.StartTag) {
+				// 所有标签全部入栈
+				tagStack.unshift(tagName);
+				continue;
+			}
+			
+			if (token === HTMLTokenEnum.EndTag) {
+				if (tagStack[0] === tagName) {
+					tagStack.shift();
+				} else {
+					noClosedTags.push(tagStack[0]);
+				}
+				continue;
+			}
+		}
+		if (tagStack.length > 0 && noClosedTags.length == 0) {
+			return tagStack;
+		}
+		return noClosedTags;
+	};
+
+	var scanner = function() {
+		// tokenDataList 每项结构
+		// {name: HTMLTokenEnum.StartTag, value: 'a', attriubtes: [{attrName: attrValue}, {attrName: attrValue}]};
+		cTokenState = TokenStateEnum.DataState;
+		var tokenDataList =[];
+		while(nextToken(reader, tokenDataList)) {}
+		return tokenDataList;
+	};
+	
+	return {
+		HTMLTokenEnum: HTMLTokenEnum,
+		scanner: scanner,
+		tagClosedCheck: tagClosedCheck,
+		IgnoreClosedTags: IgnoreClosedTags
+	};
+};
+	
+function Reader(stream) {
+	if (typeof stream != 'string') {
+		throw('Input stream is not a string!');
+	}
+	
+	var index = -1;
+	var len = stream.length;
+	
+	var lineNumber = 0;
+	var charNumber = 0;
+	var getChar = function() {
+		return stream.charAt(index);
+	};
+	
+	var nextChar = function() {
+		charNumber++;
+		index++;
+		if (isNewLine()) {
+			charNumber = 0;
+			lineNumber++;
+		}
+		
+		return stream.charAt(index);
+	};
+	
+	var prevChar = function(bool) {
+		charNumber--;
+		index--;
+		return bool && stream.charAt(index);
+	};	
+	
+	var offsetChar = function(num) {
+		if (typeof num != 'number') {
+			num = 0;
+		}
+		
+		var i = index + num;
+		if (i < 0) {
+			i = 0;
+		}
+		if (i >= len) {
+			i = len;
+		}
+		return stream.charAt(i);
+	};
+	
+	var isInputEnd = function() {
+		return (index >= len) ? true : false;
+	};
+	
+	var isNewLine = function() {
+		var c = getChar();
+		if (c.charCodeAt(0) === 10) {
+			return true;
+		}
+		
+		if (c.charCodeAt(0) === 13) {
+			return true;
+		}
+		// window system new line
+		if (c.charCodeAt(0) === 13 && offsetChar(1).charCodeAt(0) === 10) {
+			return true;
+		}
+		return false;
+	};
+
+	var isTabChar = function() {
+		return getChar().charCodeAt(0) === 9 ? true : false;
+	};
+
+	var isSpaceChar = function() {
+		return getChar().charCodeAt(0) === 32 ? true : false;
+	};
+
+	var isFullWidthSace = function() {
+		return getChar().charCodeAt(0) === 12288 ? true : false;
+	};
+
+	var isSingleQuotes = function() {
+		return getChar().charCodeAt(0) === 39 ? true : false;
+	};
+
+	var isDoubleQuotes = function() {
+		return getChar().charCodeAt(0) === 34 ? true : false;
+	};
+	
+	var isWordChar = function() {
+		return !(isSpaceChar() || isTabChar() || isNewLine());
+	};
+	
+	var getLineNumber = function() {
+		return lineNumber + 1;
+	};
+	
+	var getCharNumber = function() {
+		return charNumber + 1;
+	};
+	
+	return {
+		nextChar: nextChar,
+		prevChar: prevChar,
+		offsetChar: offsetChar,
+		isNewLine: isNewLine,
+		isTabChar: isTabChar,
+		isSpaceChar: isSpaceChar,
+		isWordChar: isWordChar,
+		isFullWidthSace: isFullWidthSace,
+		isSingleQuotes: isSingleQuotes,
+		isDoubleQuotes: isDoubleQuotes,
+		isInputEnd: isInputEnd,
+		getLineNumber: getLineNumber,
+		getCharNumber: getCharNumber
+	};
+}
+</script>
+
+<script>
+var trim = function (a){
+	if(typeof a!="string")throw"trim need a string as parameter";var b=a.length,c=0,d=/(\u3000|\s|\t|\u00A0)/;
+	while(c<b){if(!d.test(a.charAt(c)))break;c+=1}
+	while(b>c){if(!d.test(a.charAt(b-1)))break;b-=1}
+	return a.slice(c,b)
+}
+var foo = (function () {
+	function getAttrs(tdl) {
+		var map = {};
+		var attr = tdl.attributes;
+		if (!attr || attr.length <= 0) return false;
+		var c = attr.length;
+		for (var i = 0; i < c; ++i) {
+			map[attr[i].name] = attr[i].value;
+		}
+		return map;
+	}
+		
+	return function(tdl, HTMLTokenizer, funcName) {
+		var  tagNoClose = HTMLTokenizer.tagClosedCheck(tdl);
+		if (tagNoClose.length > 0) {
+			throw tagNoClose[0] + ' tag no close.';
+		}
+
+		var HTMLTokenEnum = HTMLTokenizer.HTMLTokenEnum;
+		if (!tdl || !tdl.length) return '';
+		var c = tdl.length;
+		var cmd = '';
+		var fill = '';
+		var open = [];
+		var jsCode = '';
+		var codeArr = [];
+		for (var i = 0; i < c; ++i) {
+			var data = tdl[i];
+			if (!data) continue;
+			var token = data.token;
+			var value = data.value;
+			if (token === HTMLTokenEnum.Comment) {
+				cmd += fill + '/*' + value + '*/\n';
+			}
+			if (token === HTMLTokenEnum.Character) {
+				if (open.length > 0) {
+					value = trim(value);
+					cmd += fill + '"' + value + '",\n';
+					continue;
+				}
+				jsCode += value;
+			}
+
+			if (token === HTMLTokenEnum.StartTag) {
+				open.push(1);
+				var attrs = getAttrs(data);
+				cmd += fill + funcName + '(\n';
+				fill += '  ';
+				cmd += fill + '"' + value + '",\n' + fill + (attrs ? JSON.stringify(attrs) : 'null') + ',\n';
+			}
+
+			if (token === HTMLTokenEnum.EndTag) {
+				open.pop(1);
+				fill = fill.substr(0, fill.length - 2);
+				if (cmd.substr(-2) === ',\n') {
+					cmd = cmd.substr(0, cmd.length - 2) + '\n';
+				}
+				if (fill === '') {
+					cmd += fill + ')\n'; 
+					cmd = jsCode + cmd;
+					codeArr.push(cmd);
+					cmd = '';
+					jsCode = '';
+				} else {
+					cmd += fill + '),\n'; 
+				}
+			}
+		}
+		if (cmd) {
+			codeArr.push(cmd);
+		}
+		if (jsCode) {
+			codeArr.push(jsCode);
+		}
+		
+		console.log(tdl);
+		return codeArr.join('');
+	}
+		
+})();
+
+function	fooledJsxCompiled(jsx, funcName) {
+	var reader = Reader(jsx);
+	var htmlTokenizer = HTMLTokenizer(reader);
+	var tdl = htmlTokenizer.scanner();
+	return	foo(tdl, htmlTokenizer, funcName);
+}
+</script>
+<textarea style="width:45%; height: 500px">
+var x = 1;
+var y = 2;
+
+ x<y 
+ ? (
+      <div className='ui-card'>
+        <Device_section__info data={this.props.data} />
+        <Device_section__sideBarMenu />
+        <Device_action__toggleMenu />
+      </div>
+    )
+: (
+      <div className='ui-card'>
+        <Device_section__info data={this.props.data} />
+        <Device_section__sideBarMenu />
+        <Device_action__toggleMenu />
+      </div>
+    );
+
+var DeviceCard = React.createClass({
+  render: function() {
+    return (
+      <div className='ui-card'>
+        <Device_section__info data={this.props.data} />
+        <Device_section__sideBarMenu />
+        <Device_action__toggleMenu />
+      </div>
+    );
+  }
+});
+
+
+var Device_section__info = React.createClass({
+  render: function() {
+    return (
+      <section className='content'>
+        <Device_section__mastHead data={this.props.data} />
+        <Device_section__freeSpace />
+      </section>
+    );
+  }
+});
+
+var Device_section__sideBarMenu = React.createClass({
+  render: function() {
+    return (
+      <section className='sidebar'>
+        <nav>
+          <Device_section__sideBarNav />
+          <Device_section__sideBarRemoveConnection />
+        </nav>
+      </section>
+    );      
+  }
+});
+
+
+var Device_section__sideBarNav = React.createClass({
+  render: function() {
+    return (
+      <ul>
+        <li>
+          <a href="#"><i className='fa fa-wifi'></i>Wireless Settings</a>
+        </li>
+        <li>
+          <a href="#"><i className='fa fa-info-circle'></i>Device Information</a>
+        </li>
+        <li>
+          <a href="#"><i className='fa fa-photo'></i>Edit Photos</a>
+        </li>
+        <li>
+          <a href="#"><i className='fa fa-video-camera'></i>Edit Videos</a>
+        </li>
+      </ul>
+    );
+  }
+});
+
+var Device_section__sideBarRemoveConnection = React.createClass({
+  render: function() {
+    return (
+      <span>
+        <div className='disconnect'>
+          <a href='#' className='btn btn-disconnect'>Disconnect Device</a>
+        </div>
+        <div className='reauth'>
+          <h3>Re-enter your password</h3>
+          <input type='password' />
+          <p>
+            <a href="#" className='btn btn-cancel js-reAuth'>Cancel</a>
+          </p>
+        </div>
+      </span>
+    );
+  }
+});
+
+var Device_action__toggleMenu = React.createClass({
+  handleClick: function() {
+    $(this.getDOMNode()).closest('.ui-card').toggleClass('sidebar-open');
+  },
+  render: function() {
+    return (
+      <div className='toggle'>
+        <a href='#' onClick={this.handleClick}><i className="fa fa-cog"></i></a>
+      </div>
+    );      
+  }
+});
+
+
+var Device_section__mastHead = React.createClass({
+  render: function() {
+    return (
+      <header className='masthead'>
+        <h1>{this.props.data.deviceName}</h1>
+        <div className='device-icon'>
+          <i className='fa fa-mobile-phone'></i>
+        </div>
+      </header>
+    );
+  }
+});
+
+var Device_section__freeSpace = React.createClass({
+  render: function() {
+    return (
+
+      // This is all static for now
+      // Todo: Populate this with data, and animate accordingly.
+      //       Adding some actual values probably wouldn't hurt either. 
+      <article className='device-info'>
+        <div className='device-space'>
+          <h3>Free Space</h3>
+            <div className='available-space'>
+            <div className="used-space--photos"></div>
+            <div className="used-space--videos"></div>
+          </div>
+        </div>
+        <ul className='device-legend'>
+          <li><i className="fa fa-circle videos"></i> Videos</li>
+          <li><i className="fa fa-circle photos"></i> Photos</li>
+          <li><i className="fa fa-circle available"></i> Available</li>
+        </ul>
+      </article>
+    );
+  }
+});
+
+var device_data = {
+  deviceType       : 'iphone',
+  deviceName       : 'iPhone 6',
+  availableSpace   : 2048,  // megabytes
+  photosTotalSpace : 768, // megabytes
+  videosTotalSpace : 384  // megabytes
+}
+
+
+React.renderComponent(
+  <!--dfdffd-->
+  <DeviceCard data={device_data}/>,
+  document.getElementById('device-cards')
+);
+</textarea>
+<textarea style="width:45%; height: 500px"></textarea>
+
+<script>
+var nodes = document.getElementsByTagName('textarea');
+var source = nodes[0];
+var result = nodes[1];
+source.onchange = function() {
+	result.value = fooledJsxCompiled(this.value, 'React.createElement');
+};
+result.value = fooledJsxCompiled(source.value, 'React.createElement');
+</script>
+
