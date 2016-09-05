@@ -1163,11 +1163,12 @@ var foo = (function () {
 	}
 		
 	return function(tdl, HTMLTokenizer, funcName) {
+
 		var  tagNoClose = HTMLTokenizer.tagClosedCheck(tdl);
 		if (tagNoClose.length > 0) {
 			throw tagNoClose[0] + ' tag no close.';
 		}
-
+		var expression = /^{[^}]+}?/;
 		var HTMLTokenEnum = HTMLTokenizer.HTMLTokenEnum;
 		if (!tdl || !tdl.length) return '';
 		var c = tdl.length;
@@ -1187,7 +1188,12 @@ var foo = (function () {
 			if (token === HTMLTokenEnum.Character) {
 				if (open.length > 0) {
 					value = trim(value);
-					cmd += fill + '"' + value + '",\n';
+					if (expression.test(value)) {
+						cmd += fill +  value.substr(1, value.length - 2) + ',\n';
+					} else {
+						cmd += fill + '"' + value + '",\n';
+					}
+					
 					continue;
 				}
 				jsCode += value;
@@ -1198,7 +1204,9 @@ var foo = (function () {
 				var attrs = getAttrs(data);
 				cmd += fill + funcName + '(\n';
 				fill += '  ';
-				cmd += fill + '"' + value + '",\n' + fill + (attrs ? JSON.stringify(attrs) : 'null') + ',\n';
+				var attrStr = JSON.stringify(attrs);
+				attrStr = attrStr.replace(/(\:\"\{)/g, ':').replace(/(\}\")/g, '');
+				cmd += fill + '"' + value + '",\n' + fill + (attrs ? attrStr : 'null') + ',\n';
 			}
 
 			if (token === HTMLTokenEnum.EndTag) {
@@ -1225,7 +1233,6 @@ var foo = (function () {
 			codeArr.push(jsCode);
 		}
 		
-		console.log(tdl);
 		return codeArr.join('');
 	}
 		
@@ -1414,4 +1421,3 @@ source.onchange = function() {
 };
 result.value = fooledJsxCompiled(source.value, 'React.createElement');
 </script>
-
