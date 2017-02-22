@@ -48,7 +48,7 @@ function HTMLTokenizer(reader) {
     DOCTYPEPublicIdentifierSingleQuotedState: 36,
     AfterDOCTYPEPublicIdentifierState: 37,
     BetweenDOCTYPEPublicAndSystemIdentifiersState: 38,
-    AfterDOCTYPESystemKeywordState: 38,
+    AfterDOCTYPESystemKeywordState: 39,
     BeforeDOCTYPESystemIdentifierState: 40,
     DOCTYPESystemIdentifierDoubleQuotedState: 41,
     DOCTYPESystemIdentifierSingleQuotedState: 42,
